@@ -52,6 +52,10 @@ int checkRightBorder (struct _field *field, struct _coordinates coords);
 
 int coordinatesToCellNum (struct _field field, int x, int y);
 
+int waitForStart (struct _field* field, WINDOW* win);
+
+void loadArrayToField (struct _field * field, chtype* arr, WINDOW* win);
+
 int main()
 {
     initscr();
@@ -73,6 +77,9 @@ int main()
     WINDOW* win = newwin (height, width, start_y, start_x);
 
     wbkgd (win, COLOR_PAIR(1));
+    
+    keypad (stdscr, TRUE);
+    keypad (win, TRUE);
 
     refresh();
 
@@ -84,18 +91,36 @@ int main()
     field_bZero (&field);
     printField (field, win);
 
+    waitForStart (&field, win);
+
+    timeout (100);
+    getch();
+
     int isFinished = 0;             // !!!!!!!!!!!!!!!!!!!!!!  надо переписать детекцию в углах экрана
 
+    int i = 0; 
     while (isFinished == 0)
     {
         isFinished = evolution (&field, win);
-        usleep(100000); 
+        
+        timeout (100);
+        char c = getch();
+        if (c == ' ')
+            waitForStart (&field, win);
+        
+        i++;
     }
 
-    printf ("Game is finished!!!\n");
+    mvprintw (0, 0, "lifecycles = %d", i);
+
+    mvprintw (4, 70, "Game finished\n");
+    refresh ();
+
+    waitForStart (&field, win);
 
     free (field.field);
 
+    printf("\033[?1003l\n");
     endwin();
 
     return 0;
@@ -393,4 +418,59 @@ int isCellAlive (struct _field *field, int cellNumber)
 int coordinatesToCellNum (struct _field field, int x, int y)
 {
     return x + y*field.xSize;
+}
+
+int waitForStart (struct _field *field, WINDOW* win)
+{
+    printf("\033[?1003h\n");
+    mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
+    char cellChar = '#';
+
+    chtype* readingArray = calloc (field->xSize * field->ySize, sizeof (chtype));
+
+    while (1)
+    {
+        timeout (0);
+        int c = getch();
+        MEVENT event;
+    
+        switch (c)
+        {
+            case ' ':
+                loadArrayToField (field, readingArray, win);
+
+                free (readingArray);
+                return 0;        
+
+            case KEY_MOUSE:
+                if(getmouse(&event) == OK)
+                {
+                    if (event.bstate & REPORT_MOUSE_POSITION)
+                    {
+                        mvwprintw (win, event.y - 10, event.x, "%c", cellChar);
+                        wrefresh (win);
+                    }
+                }            
+        }    
+    }
+}
+
+void loadArrayToField (struct _field * field, chtype* arr, WINDOW* win)
+{
+    for (int j = 0; j < field->ySize*field->xSize; j += field->xSize)
+    {
+        mvwinchstr (win, j/field->xSize, 0, arr + j);        
+        refresh();
+    }
+
+    int i = 0;
+    for (i = 0; (char)arr[i] != '\0'; i++)
+    {   
+        if((char)arr[i] != '#')
+            field->field[i].curr = ' ';
+        else
+            field->field[i].curr = '1';
+
+        mvprintw (2, i, "%c", field->field[i].curr);        
+    }
 }
