@@ -59,12 +59,21 @@ int main()
     struct _field field = {190, 30, calloc (190*30, sizeof(struct _cell))};
 
     int height, width, start_y, start_x;
-    height = 32;
+    height = 30;
     width = 190; 
     start_y = 10;
     start_x = 0;
 
+    start_color();
+
+    mvprintw (3, 78, "Conway's game of life\n");
+
+    init_pair (1, COLOR_BLACK, COLOR_WHITE);
+
     WINDOW* win = newwin (height, width, start_y, start_x);
+
+    wbkgd (win, COLOR_PAIR(1));
+
     refresh();
 
     curs_set (0);
@@ -95,14 +104,15 @@ int main()
 void printField (struct _field field, WINDOW* win)
 {
     wclear (win);
-    char c = '~';
+    char tildaChar = '~';
+    char cellChar = '#';
     for (int i = 0; i < field.xSize*field.ySize; i++)
     {
         if (field.field[i].curr == '1')
         {
             struct _coordinates* coord = getCellCoordinates (&field, i);
-            mvwprintw (win, coord->y, coord->x, "%c", field.field[i].curr);
-            box (win, 0, (int)c);
+            mvwprintw (win, coord->y, coord->x, "%c", cellChar);
+            box (win, 0, (int)tildaChar);
             wrefresh (win);
 
             free (coord);
