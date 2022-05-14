@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <ncurses.h>
 
 #define coordsCheck(x, y)\
         field->field [coordinatesToCellNum (*field, x, y)].curr == '1'
@@ -26,16 +27,15 @@ struct _field
         struct _cell* field;
     };
 
-void printField (struct _field field);
+void printField (struct _field field, WINDOW* win);
 void field_bZero (struct _field * field);
-void printBorders (struct _field field);
 void getNeighbourCount (struct _field * field, int cellNumber);
 
 struct _coordinates * getCellCoordinates (struct _field * field, int cellNumber);
 int isCoordBorder (struct _field * field, struct _coordinates* coordinates);
 
 int simpleEvolve (struct _field* field, struct _coordinates coords, int cellNumber, int isBorder);
-int evolution (struct _field * field);
+int evolution (struct _field * field, WINDOW* win);
 int evolve (struct _field* field);
 
 int isCellAlive (struct _field *field, int cellNumber);
@@ -45,57 +45,71 @@ int checkForRightTop (struct _field *field);
 int checkForRightBot (struct _field *field);
 int checkForLeftBot (struct _field *field);
 
-int checkTopBorder (struct _field *field, struct _coordinates coords, int cellNum);
-int checkBotBorder (struct _field *field, struct _coordinates coords, int cellNum);
-int checkLeftBorder (struct _field *field, struct _coordinates coords, int cellNum);
-int checkRightBorder (struct _field *field, struct _coordinates coords, int cellNum);
+int checkTopBorder (struct _field *field, struct _coordinates coords);
+int checkBotBorder (struct _field *field, struct _coordinates coords);
+int checkLeftBorder (struct _field *field, struct _coordinates coords);
+int checkRightBorder (struct _field *field, struct _coordinates coords);
 
 int coordinatesToCellNum (struct _field field, int x, int y);
 
 int main()
 {
-    struct _field field = {190, 45, calloc (190*45, sizeof(struct _cell))};
+    initscr();
+
+    struct _field field = {190, 30, calloc (190*30, sizeof(struct _cell))};
+
+    int height, width, start_y, start_x;
+    height = 32;
+    width = 190; 
+    start_y = 10;
+    start_x = 0;
+
+    WINDOW* win = newwin (height, width, start_y, start_x);
+    refresh();
+
+    curs_set (0);
+
+    box (win, 0, 0);
+    wrefresh (win);
 
     field_bZero (&field);
-    printField (field);
+    printField (field, win);
 
-    int isFinished = 0;
+    int isFinished = 0;             // !!!!!!!!!!!!!!!!!!!!!!  надо переписать детекцию в углах экрана
 
     while (isFinished == 0)
     {
-        isFinished = evolution (&field);
-        usleep(10000);
+        isFinished = evolution (&field, win);
+        usleep(100000); 
     }
 
     printf ("Game is finished!!!\n");
 
     free (field.field);
 
+    endwin();
+
     return 0;
 }
 
-void printField (struct _field field)
+void printField (struct _field field, WINDOW* win)
 {
-    printBorders (field);
-
+    wclear (win);
+    char c = '~';
     for (int i = 0; i < field.xSize*field.ySize; i++)
     {
-        printf ("%c", field.field[i].curr);
+        if (field.field[i].curr == '1')
+        {
+            struct _coordinates* coord = getCellCoordinates (&field, i);
+            mvwprintw (win, coord->y, coord->x, "%c", field.field[i].curr);
+            box (win, 0, (int)c);
+            wrefresh (win);
 
-        if ((i+1) % field.xSize == 0)
-            printf ("\n");
-    } 
-    
-    printBorders(field);    
+            free (coord);
+        }
+    }     
 }
 
-void printBorders (struct _field field)
-{
-    for (int i = 0; i < field.xSize; i++)
-        printf ("#");
-
-    printf ("\n");
-}
 
 void field_bZero (struct _field * field)
 {
@@ -112,9 +126,10 @@ void field_bZero (struct _field * field)
     field->field [field->xSize*3 + 2].curr = '1';
 }
 
-int evolution (struct _field * field)
+int evolution (struct _field * field, WINDOW* win)
 {
     int isFinished = 0;
+
     for (int cellNumber = 0; cellNumber < field->xSize * field->ySize; cellNumber++)
     {
         struct _coordinates* coord = getCellCoordinates (field, cellNumber);
@@ -124,7 +139,7 @@ int evolution (struct _field * field)
     }
 
     isFinished = evolve (field);
-    printField (*field);
+    printField (*field, win);
 
     return isFinished;
 }
@@ -194,16 +209,16 @@ int simpleEvolve (struct _field* field, struct _coordinates coords, int cellNumb
             counter += checkForRightBot (field); 
 
         if (coords.x == 0 && coords.y != 0 && coords.y != field->ySize-1)
-            counter += checkLeftBorder (field, coords, cellNumber);
+            counter += checkLeftBorder (field, coords);
 
         if (coords.x != 0 && coords.y == 0 && coords.x != field->xSize-1)
-            counter += checkTopBorder (field, coords, cellNumber);
+            counter += checkTopBorder (field, coords);
 
         if (coords.x == field->xSize-1 && coords.y != 0 && coords.y != field->ySize-1)
-            counter += checkRightBorder (field, coords, cellNumber);
+            counter += checkRightBorder (field, coords);
 
         if (coords.x != 0 && coords.y == field->ySize-1 && coords.x != field->xSize-1)
-            counter += checkBotBorder (field, coords, cellNumber);
+            counter += checkBotBorder (field, coords);
     }
 
     if (counter == 3 || ((counter == 2 || counter == 3) && field->field[cellNumber].curr == '1'))
@@ -263,10 +278,8 @@ int checkForRightBot (struct _field *field)
     return innerCounter;
 }
 
-int checkTopBorder (struct _field *field, struct _coordinates coords, int cellNum)
+int checkTopBorder (struct _field *field, struct _coordinates coords)
 {
-    int xSize = field->xSize;
-    int ySize = field->ySize;
     int innerCounter = 0;
 
     for (int i = -1; i < 2; i++)
@@ -284,10 +297,8 @@ int checkTopBorder (struct _field *field, struct _coordinates coords, int cellNu
     return innerCounter;
 }
 
-int checkBotBorder (struct _field *field, struct _coordinates coords, int cellNum)
+int checkBotBorder (struct _field *field, struct _coordinates coords)
 {
-    int xSize = field->xSize;
-    int ySize = field->ySize;
     int innerCounter = 0;
 
     for (int i = -1; i < 2; i++)
@@ -305,10 +316,8 @@ int checkBotBorder (struct _field *field, struct _coordinates coords, int cellNu
     return innerCounter;
 }
 
-int checkLeftBorder (struct _field *field, struct _coordinates coords, int cellNum)
+int checkLeftBorder (struct _field *field, struct _coordinates coords)
 {
-    int xSize = field->xSize;
-    int ySize = field->ySize;
     int innerCounter = 0;
 
     for (int i = 0; i < 2; i++)
@@ -335,10 +344,8 @@ int checkLeftBorder (struct _field *field, struct _coordinates coords, int cellN
     return innerCounter;
 }
 
-int checkRightBorder (struct _field *field, struct _coordinates coords,int cellNum)
+int checkRightBorder (struct _field *field, struct _coordinates coords)
 {
-    int xSize = field->xSize;
-    int ySize = field->ySize;
     int innerCounter = 0;
 
     for (int i = -1; i < 1; i++)
