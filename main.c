@@ -120,7 +120,6 @@ int main()
 
     free (field.field);
 
-    printf("\033[?1003l\n");
     endwin();
 
     return 0;
@@ -423,34 +422,35 @@ int coordinatesToCellNum (struct _field field, int x, int y)
 int waitForStart (struct _field *field, WINDOW* win)
 {
     printf("\033[?1003h\n");
-    mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
+    mousemask(ALL_MOUSE_EVENTS, NULL);
     char cellChar = '#';
 
     chtype* readingArray = calloc (field->xSize * field->ySize, sizeof (chtype));
 
     while (1)
     {
-        timeout (0);
+        //wtimeout (win, 100000);
         int c = getch();
         MEVENT event;
-    
-        switch (c)
-        {
-            case ' ':
-                loadArrayToField (field, readingArray, win);
 
+        if (c == KEY_MOUSE)
+        {
+            int isEventOk = getmouse(&event);
+            if (isEventOk == OK && event.bstate & (BUTTON1_CLICKED || event.bstate & BUTTON1_PRESSED))
+            {
+                mvwprintw (win, event.y - 10, event.x, "%c", cellChar);
+                wrefresh (win);
+            }            
+            
+        }
+
+        else if (c == ' ')
+        {                
+                loadArrayToField (field, readingArray, win);
+                printf("\033[?1003l\n");
                 free (readingArray);
                 return 0;        
 
-            case KEY_MOUSE:
-                if(getmouse(&event) == OK)
-                {
-                    if (event.bstate & REPORT_MOUSE_POSITION)
-                    {
-                        mvwprintw (win, event.y - 10, event.x, "%c", cellChar);
-                        wrefresh (win);
-                    }
-                }            
         }    
     }
 }
