@@ -55,16 +55,17 @@ int coordinatesToCellNum (struct _field field, int x, int y);
 int waitForStart (struct _field* field, WINDOW* win);
 
 void loadArrayToField (struct _field * field, chtype* arr, WINDOW* win);
+void translatePrintToField (struct _field* field, chtype* arr, int lineAmount, WINDOW* win);
 
 int main()
 {
     initscr();
 
-    struct _field field = {190, 30, calloc (190*30, sizeof(struct _cell))};
+    struct _field field = {188/2, 30, calloc ((188/2)*(30), sizeof(struct _cell))};
 
     int height, width, start_y, start_x;
     height = 30;
-    width = 190; 
+    width = 188; 
     start_y = 10;
     start_x = 0;
 
@@ -135,7 +136,22 @@ void printField (struct _field field, WINDOW* win)
         if (field.field[i].curr == '1')
         {
             struct _coordinates* coord = getCellCoordinates (&field, i);
-            mvwprintw (win, coord->y, coord->x, "%c", cellChar);
+            if (coord->y%2 != 0 && coord->x == 0)
+            {
+                mvwprintw (win, coord->y, coord->x, "%c", cellChar);
+                mvwprintw (win, coord->y, 2*field.xSize - 1, "%c", cellChar);
+            }    
+            else if (coord->y%2 == 0)
+            {    
+                mvwprintw (win, coord->y, 2*coord->x, "%c", cellChar);
+                mvwprintw (win, coord->y, 2*coord->x + 1, "%c", cellChar);
+            }
+            else
+            {
+                mvwprintw (win, coord->y, 2*coord->x - 1, "%c", cellChar);
+                mvwprintw (win, coord->y, 2*coord->x, "%c", cellChar);              
+            }
+
             box (win, 0, (int)tildaChar);
             wrefresh (win);
 
@@ -152,12 +168,14 @@ void field_bZero (struct _field * field)
         field->field[i].curr = ' ';
         field->field[i].next = ' ';
     }
-
+/*
+    field->field [field->xSize + 1].curr = '1';
     field->field [field->xSize + 3].curr = '1';
     field->field [field->xSize*2 + 1].curr = '1';
+    field->field [field->xSize + 0].curr = '1';
     field->field [field->xSize*2 + 3].curr = '1';
-    field->field [field->xSize*3 + 3].curr = '1';
     field->field [field->xSize*3 + 2].curr = '1';
+    field->field [field->xSize*3 + 0].curr = '1';*/
 }
 
 int evolution (struct _field * field, WINDOW* win)
@@ -182,7 +200,7 @@ struct _coordinates * getCellCoordinates (struct _field * field, int cellNumber)
 {
     struct _coordinates* cellCoordinates = calloc (1, sizeof (struct _coordinates));
 
-    cellCoordinates->x = cellNumber % field->xSize;
+    cellCoordinates->x = (cellNumber % field->xSize);
     cellCoordinates->y = cellNumber / field->xSize;
     
     return cellCoordinates;
@@ -216,17 +234,41 @@ int simpleEvolve (struct _field* field, struct _coordinates coords, int cellNumb
 
     if (!isBorder)
     {
-        for (int i = -1; i < 2; i++)
+        if (coords.y%2 == 0)   
+        {         
+            for (int i = 0; i < 2; i++)
+            {
+                if (field->field [cellNumber - field->xSize + i].curr == '1')
+                    counter++;                
+
+                if (field->field [cellNumber + field->xSize + i].curr == '1')
+                    counter++;
+            }    
+
+            if (field->field [cellNumber - 1].curr == '1')
+                counter++;
+
+            if (field->field [cellNumber + 1].curr == '1')
+                counter++;
+        }
+        else 
         {
-            if (field->field [cellNumber - field->xSize + i].curr == '1')
+            for (int i = -1; i < 1; i++)
+            {
+                if (field->field [cellNumber - field->xSize + i].curr == '1')
+                    counter++;                
+
+                if (field->field [cellNumber + field->xSize + i].curr == '1')
+                    counter++;
+            }    
+
+            if (field->field [cellNumber - 1].curr == '1')
                 counter++;
 
-            if (field->field [cellNumber + field->xSize + i].curr == '1')
+            if (field->field [cellNumber + 1].curr == '1')
                 counter++;
+        }
 
-            if (field->field [cellNumber + i].curr == '1' && i != 0)
-                counter++;
-        }    
     }
     else    
     {
@@ -255,7 +297,7 @@ int simpleEvolve (struct _field* field, struct _coordinates coords, int cellNumb
             counter += checkBotBorder (field, coords);
     }
 
-    if (counter == 3 || ((counter == 2 || counter == 3) && field->field[cellNumber].curr == '1'))
+    if (counter == 2)
         field->field[cellNumber].next = '1';
     else    
         field->field[cellNumber].next = ' ';
@@ -316,17 +358,36 @@ int checkTopBorder (struct _field *field, struct _coordinates coords)
 {
     int innerCounter = 0;
 
-    for (int i = -1; i < 2; i++)
-    {   
-        if (coordsCheck (coords.x + i, coords.y+1))
-            innerCounter++;
-        
-        if (coordsCheck (coords.x + i, coords.y) && i != 0)
-            innerCounter++;
+    if (coords.y%2 == 0)
+        for (int i = 0; i < 2; i++)
+        {   
+            if (coordsCheck (coords.x + i, coords.y+1))
+                innerCounter++;
+            
+            if (coordsCheck (coords.x + 1, coords.y))
+                innerCounter++;
+            
+            if (coordsCheck (coords.x, coords.y))
+                innerCounter++;
 
-        if (coordsCheck (coords.x + i, field->ySize-1))
-            innerCounter++;
-    }
+            if (coordsCheck (coords.x + i, field->ySize-1))
+                innerCounter++;
+        }
+    else
+        for (int i = -1; i < 1; i++)
+        {
+            if (coordsCheck (coords.x + i, coords.y+1))
+                innerCounter++;
+            
+            if (coordsCheck (coords.x + 1, coords.y))
+                innerCounter++;
+            
+            if (coordsCheck (coords.x, coords.y))
+                innerCounter++;
+
+            if (coordsCheck (coords.x + i, field->ySize-1))
+                innerCounter++; 
+        }
 
     return innerCounter;
 }
@@ -335,17 +396,36 @@ int checkBotBorder (struct _field *field, struct _coordinates coords)
 {
     int innerCounter = 0;
 
-    for (int i = -1; i < 2; i++)
-    {   
-        if (coordsCheck (coords.x + i, 0))
-            innerCounter++;
+    if (coords.y%2 == 0)
+        for (int i = 0; i < 2; i++)
+        {   
+            if (coordsCheck (coords.x + i, coords.y+1))
+                innerCounter++;
+            
+            if (coordsCheck (coords.x + 1, coords.y))
+                innerCounter++;
+            
+            if (coordsCheck (coords.x, coords.y))
+                innerCounter++;
 
-        if (coordsCheck (coords.x + i, coords.y-1))
-            innerCounter++;
-        
-        if (coordsCheck (coords.x + i, coords.y) && i != 0)
-            innerCounter++;
-    }
+            if (coordsCheck (coords.x + i, 0))
+                innerCounter++;
+        }
+    else
+        for (int i = -1; i < 1; i++)
+        {
+            if (coordsCheck (coords.x + i, coords.y+1))
+                innerCounter++;
+            
+            if (coordsCheck (coords.x + 1, coords.y))
+                innerCounter++;
+            
+            if (coordsCheck (coords.x, coords.y))
+                innerCounter++;
+
+            if (coordsCheck (coords.x + i, 0))
+                innerCounter++; 
+        }
 
     return innerCounter;
 }
@@ -354,26 +434,40 @@ int checkLeftBorder (struct _field *field, struct _coordinates coords)
 {
     int innerCounter = 0;
 
-    for (int i = 0; i < 2; i++)
-    {   
-        if (coordsCheck (coords.x + i, coords.y-1))
-            innerCounter++;
- 
-        if (coordsCheck (coords.x + i, coords.y+1))
+    if (coords.y%2 == 0)
+    {
+        for (int i = 0; i < 2; i++)
+        {   
+            if (coordsCheck (coords.x + i, coords.y-1))
+                innerCounter++;
+    
+            if (coordsCheck (coords.x + i, coords.y+1))
+                innerCounter++;            
+        }
+
+        if (coordsCheck (field->xSize-1, coords.y))
             innerCounter++;
         
-        if (coordsCheck (coords.x + i, coords.y) && i != 0)
+        if (coordsCheck (1, coords.y))
             innerCounter++;
     }
+    else
+    {
+        for (int i = -1; i < 2; i++)
+        {   
+        if (coordsCheck (field->xSize-1, coords.y + i) && i != 0)
+            innerCounter++;
+        
+        if (coordsCheck (1, coords.y + i) && i != 0)
+            innerCounter++;
+        }
 
-    if (coordsCheck (field->xSize-1, coords.y))
-        innerCounter++;
-    
-    if (coordsCheck (field->xSize-1, coords.y + 1))
-        innerCounter++;
+        if (coordsCheck (1, coords.y))
+            innerCounter++;
 
-    if (coordsCheck (field->xSize-1, coords.y - 1))
-        innerCounter++;
+        if (coordsCheck (field->xSize - 1, coords.y))
+            innerCounter++;
+    }
 
     return innerCounter;
 }
@@ -382,26 +476,44 @@ int checkRightBorder (struct _field *field, struct _coordinates coords)
 {
     int innerCounter = 0;
 
-    for (int i = -1; i < 1; i++)
-    {   
-        if (coordsCheck (coords.x + i, coords.y-1))
+    if (coords.y%2 == 0)
+    {
+        if (coordsCheck (field->xSize-1, coords.y - 1))
             innerCounter++;
- 
-        if (coordsCheck (coords.x + i, coords.y + 1))
+
+        if (coordsCheck (0, coords.y - 1))
+            innerCounter++;
+
+        if (coordsCheck (field->xSize-2, coords.y))
+            innerCounter++;
+
+        if (coordsCheck (0, coords.y))
+            innerCounter++;
+
+        if (coordsCheck (field->xSize-1, coords.y + 1))
+            innerCounter++;
+
+        if (coordsCheck (0, coords.y + 1))
+            innerCounter++; 
+    }
+    else
+    {
+        for (int i = -1; i < 2; i++)
+        {   
+        if (coordsCheck (field->xSize-1, coords.y + i))
             innerCounter++;
         
-        if (coordsCheck (coords.x + i, coords.y) && i != 0)
+        if (coordsCheck (0, coords.y + i))
             innerCounter++;
+        }
+
+        if (coordsCheck (0, coords.y))
+            innerCounter++;
+
+        if (coordsCheck (field->xSize - 2, coords.y))
+            innerCounter++;
+
     }
-
-    if (coordsCheck (0, coords.y))
-        innerCounter++;
-    
-    if (coordsCheck (0, coords.y + 1))
-        innerCounter++;
-
-    if (coordsCheck (0, coords.y - 1))
-        innerCounter++;
 
     return innerCounter;
 }
@@ -425,7 +537,7 @@ int waitForStart (struct _field *field, WINDOW* win)
     mousemask(ALL_MOUSE_EVENTS, NULL);
     char cellChar = '#';
 
-    chtype* readingArray = calloc (field->xSize * field->ySize, sizeof (chtype));
+    chtype* readingArray = calloc (2*field->xSize * field->ySize, sizeof (chtype));
 
     while (1)
     {
@@ -436,12 +548,45 @@ int waitForStart (struct _field *field, WINDOW* win)
         if (c == KEY_MOUSE)
         {
             int isEventOk = getmouse(&event);
-            if (isEventOk == OK && event.bstate & (BUTTON1_CLICKED || event.bstate & BUTTON1_PRESSED))
+            if (isEventOk == OK && (event.bstate & BUTTON1_CLICKED || event.bstate & BUTTON1_PRESSED))
             {
-                mvwprintw (win, event.y - 10, event.x, "%c", cellChar);
-                wrefresh (win);
-            }            
-            
+                if (event.y%2 == 0)
+                {                  
+                    if (event.x%2 == 0)  
+                    {
+                        mvwprintw (win, event.y - 10, event.x, "%c", cellChar);
+                        mvwprintw (win, event.y - 10, event.x + 1, "%c", cellChar);
+                        wrefresh (win);
+                    }
+                    else
+                    {
+                        mvwprintw (win, event.y - 10, event.x - 1, "%c", cellChar);
+                        mvwprintw (win, event.y - 10, event.x, "%c", cellChar);
+                        wrefresh (win);
+                    }
+                }
+                else
+                {
+                    if (event.x == 0 || event.x == (2*field->xSize)-1)
+                    {
+                        mvwprintw (win, event.y - 10, 0, "%c", cellChar);
+                        mvwprintw (win, event.y - 10, 2*field->xSize - 1, "%c", cellChar);
+                        wrefresh (win);
+                    }
+                    else if (event.x%2 == 0)
+                    {
+                        mvwprintw (win, event.y - 10, event.x - 1, "%c", cellChar);
+                        mvwprintw (win, event.y - 10, event.x, "%c", cellChar);
+                        wrefresh (win);                       
+                    }
+                    else
+                    {
+                        mvwprintw (win, event.y - 10, event.x, "%c", cellChar);
+                        mvwprintw (win, event.y - 10, event.x + 1, "%c", cellChar);
+                        wrefresh (win); 
+                    }
+                }
+            }                        
         }
 
         else if (c == ' ')
@@ -457,13 +602,16 @@ int waitForStart (struct _field *field, WINDOW* win)
 
 void loadArrayToField (struct _field * field, chtype* arr, WINDOW* win)
 {
-    for (int j = 0; j < field->ySize*field->xSize; j += field->xSize)
+    for (int j = 0; j < field->ySize*field->xSize; j += 2*field->xSize)
     {
-        mvwinchstr (win, j/field->xSize, 0, arr + j);        
+        mvwinchstr (win, j/(2*field->xSize), 0, arr + j); 
+        //translatePrintToField (field, arr, );
         refresh();
     }
 
-    int i = 0;
+    translatePrintToField (field, arr, field->ySize, win);
+
+    /*int i = 0;
     for (i = 0; (char)arr[i] != '\0'; i++)
     {   
         if((char)arr[i] != '#')
@@ -472,5 +620,45 @@ void loadArrayToField (struct _field * field, chtype* arr, WINDOW* win)
             field->field[i].curr = '1';
 
         mvprintw (2, i, "%c", field->field[i].curr);        
+    }*/
+}
+
+void translatePrintToField (struct _field* field, chtype* arr, int lineAmount, WINDOW* win)
+{
+    for (int line = 0; line < lineAmount; line++)
+    {
+            if (line%2 == 0)
+            for (int i = 0; i < field->xSize * 2; i+=2)
+            {
+                //mvprintw (4, 10*i, "i = %d, i/2 = %d", );
+                if ((char)arr [i + 2*line*field->xSize] == '#')
+                    field->field[i/2 + line*field->xSize].curr = '1';    
+                else    
+                    field->field[i/2 + line*field->xSize].curr = ' ';
+            }
+        else
+        {
+            if ((char)arr [2*line*field->xSize] == '#')
+                field->field [line*field->xSize].curr = '1';
+            else 
+                field->field [line*field->xSize].curr = ' ';
+            for (int i = 1; i < field->xSize * 2; i+=2)
+            {
+                if ((char)arr [i + 2*line*field->xSize] == '#')
+                {
+                    mvprintw (5, 1, "1");
+                    field->field[i/2 + line*field->xSize].curr = '1';    
+                    refresh ();
+                }
+                else    
+                    field->field[i/2 + line*field->xSize].curr = ' ';
+            }
+        }
+        //mvprintw (1, 0, "line = %d", line);
     }
+
+    printField (*field, win);
+    wrefresh (win);
+    //for (int i = 0; i < field->xSize; i++)
+    //    mvprintw (2, i, "%d", field->field[i + field->xSize].curr == ' ');
 }
