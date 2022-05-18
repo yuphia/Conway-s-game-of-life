@@ -49,6 +49,7 @@ int waitForStart (struct _field* field, WINDOW* win);
 
 void loadArrayToField (struct _field * field, chtype* arr, WINDOW* win);
 void translatePrintToField (struct _field* field, chtype* arr, int lineAmount, WINDOW* win);
+int xor (int x, int y);
 
 int main()
 {
@@ -176,10 +177,7 @@ int evolution (struct _field * field, WINDOW* win)
     int isFinished = 0;
 
     for (int cellNumber = 0; cellNumber < field->xSize * field->ySize; cellNumber++)
-    {
-
         simpleEvolve (field, cellNumber);
-    }
 
     isFinished = evolve (field);
     printField (field, win);
@@ -248,6 +246,7 @@ int waitForStart (struct _field *field, WINDOW* win)
     while (1)
     {
         //wtimeout (win, 100000);
+        int canvasXSize = 2*field->xSize;
         int c = getch();
         MEVENT event;
 
@@ -255,43 +254,10 @@ int waitForStart (struct _field *field, WINDOW* win)
         {
             int isEventOk = getmouse(&event);
             if (isEventOk == OK && (event.bstate & BUTTON1_CLICKED || event.bstate & BUTTON1_PRESSED))
-            {
-                if (event.y%2 == 0)
-                {                  
-                    if (event.x%2 == 0)  
-                    {
-                        mvwprintw (win, event.y - 10, event.x, "%c", ca);
-                        mvwprintw (win, event.y - 10, event.x + 1, "%c", cb);
-                        wrefresh (win);
-                    }
-                    else
-                    {
-                        mvwprintw (win, event.y - 10, event.x - 1, "%c", ca);
-                        mvwprintw (win, event.y - 10, event.x, "%c", cb);
-                        wrefresh (win);
-                    }
-                }
-                else
-                {
-                    if (event.x == 0 || event.x == (2*field->xSize)-1)
-                    {
-                        mvwprintw (win, event.y - 10, 0, "%c", cb);
-                        mvwprintw (win, event.y - 10, 2*field->xSize - 1, "%c", ca);
-                        wrefresh (win);
-                    }
-                    else if (event.x%2 == 0)
-                    {
-                        mvwprintw (win, event.y - 10, event.x - 1, "%c", ca);
-                        mvwprintw (win, event.y - 10, event.x, "%c", cb);
-                        wrefresh (win);                       
-                    }
-                    else
-                    {
-                        mvwprintw (win, event.y - 10, event.x, "%c", ca);
-                        mvwprintw (win, event.y - 10, event.x + 1, "%c", cb);
-                        wrefresh (win); 
-                    }
-                }
+            {               
+                mvwprintw (win, event.y - 10, (canvasXSize + event.x - xor (event.x%2, event.y%2))     %canvasXSize, "%c", ca);
+                mvwprintw (win, event.y - 10, (canvasXSize + event.x - xor (event.x%2, event.y%2) + 1) %canvasXSize, "%c", cb);
+                wrefresh (win);                
             }                        
         }
 
@@ -357,3 +323,7 @@ void translatePrintToField (struct _field* field, chtype* arr, int lineAmount, W
     //    mvprintw (2, i, "%d", field->field[i + field->xSize].curr == ' ');
 }
 
+int xor (int x, int y)
+{
+    return (x == y) ? 0 : 1;
+}
