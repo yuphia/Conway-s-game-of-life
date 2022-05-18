@@ -31,7 +31,9 @@ void printField (struct _field field, WINDOW* win);
 void field_bZero (struct _field * field);
 void getNeighbourCount (struct _field * field, int cellNumber);
 
-struct _coordinates * getCellCoordinates (struct _field * field, int cellNumber);
+int getX_Coordinate (struct _field field, int cellNumber);
+int getY_Coordinate (struct _field field, int cellNumber);
+
 int isCoordBorder (struct _field * field, struct _coordinates* coordinates);
 
 int simpleEvolve (struct _field* field, struct _coordinates coords, int cellNumber, int isBorder);
@@ -135,27 +137,25 @@ void printField (struct _field field, WINDOW* win)
     {
         if (field.field[i].curr == '1')
         {
-            struct _coordinates* coord = getCellCoordinates (&field, i);
-            if (coord->y%2 != 0 && coord->x == 0)
+            struct _coordinates coord = {getX_Coordinate (field, i), getY_Coordinate (field, i)};
+            if (coord.y%2 != 0 && coord.x == 0)
             {
-                mvwprintw (win, coord->y, coord->x, "%c", cellChar);
-                mvwprintw (win, coord->y, 2*field.xSize - 1, "%c", cellChar);
+                mvwprintw (win, coord.y, coord.x, "%c", cellChar);
+                mvwprintw (win, coord.y, 2*field.xSize - 1, "%c", cellChar);
             }    
-            else if (coord->y%2 == 0)
+            else if (coord.y%2 == 0)
             {    
-                mvwprintw (win, coord->y, 2*coord->x, "%c", cellChar);
-                mvwprintw (win, coord->y, 2*coord->x + 1, "%c", cellChar);
+                mvwprintw (win, coord.y, 2*coord.x, "%c", cellChar);
+                mvwprintw (win, coord.y, 2*coord.x + 1, "%c", cellChar);
             }
             else
             {
-                mvwprintw (win, coord->y, 2*coord->x - 1, "%c", cellChar);
-                mvwprintw (win, coord->y, 2*coord->x, "%c", cellChar);              
+                mvwprintw (win, coord.y, 2*coord.x - 1, "%c", cellChar);
+                mvwprintw (win, coord.y, 2*coord.x, "%c", cellChar);              
             }
 
             box (win, 0, (int)tildaChar);
             wrefresh (win);
-
-            free (coord);
         }
     }     
 }
@@ -184,26 +184,15 @@ int evolution (struct _field * field, WINDOW* win)
 
     for (int cellNumber = 0; cellNumber < field->xSize * field->ySize; cellNumber++)
     {
-        struct _coordinates* coord = getCellCoordinates (field, cellNumber);
+        struct _coordinates coord = {getX_Coordinate (*field, cellNumber), getY_Coordinate (*field, cellNumber)};
 
-        simpleEvolve (field, *coord, cellNumber, isCoordBorder (field, coord));
-        free (coord);
+        simpleEvolve (field, coord, cellNumber, isCoordBorder (field, &coord));
     }
 
     isFinished = evolve (field);
     printField (*field, win);
 
     return isFinished;
-}
-
-struct _coordinates * getCellCoordinates (struct _field * field, int cellNumber)
-{
-    struct _coordinates* cellCoordinates = calloc (1, sizeof (struct _coordinates));
-
-    cellCoordinates->x = (cellNumber % field->xSize);
-    cellCoordinates->y = cellNumber / field->xSize;
-    
-    return cellCoordinates;
 }
 
 int isCoordBorder (struct _field * field, struct _coordinates* coordinates)
@@ -297,7 +286,7 @@ int simpleEvolve (struct _field* field, struct _coordinates coords, int cellNumb
             counter += checkBotBorder (field, coords);
     }
 
-    if (counter == 2)
+    if (counter == 3 || (counter == 2 && field->field[cellNumber].curr == '1'))
         field->field[cellNumber].next = '1';
     else    
         field->field[cellNumber].next = ' ';
@@ -661,4 +650,18 @@ void translatePrintToField (struct _field* field, chtype* arr, int lineAmount, W
     wrefresh (win);
     //for (int i = 0; i < field->xSize; i++)
     //    mvprintw (2, i, "%d", field->field[i + field->xSize].curr == ' ');
+}
+
+int getX_Coordinate (struct _field field, int cellNumber)
+{
+    int x = cellNumber % field.xSize;
+
+    return x;
+}
+
+int getY_Coordinate (struct _field field, int cellNumber)
+{
+    int y = cellNumber / field.xSize;
+
+    return y;
 }
