@@ -237,7 +237,7 @@ int coordinatesToCellNum (struct _field field, int x, int y)
 
 int waitForStart (struct _field *field, WINDOW* win)
 {
-    printf("\033[?1003h\n");
+//    printf("\033[?1003h\n");
     mousemask(ALL_MOUSE_EVENTS, NULL);
     char ca = '<', cb='>';
 
@@ -245,7 +245,6 @@ int waitForStart (struct _field *field, WINDOW* win)
 
     while (1)
     {
-        //wtimeout (win, 100000);
         int canvasXSize = 2*field->xSize;
         int c = getch();
         MEVENT event;
@@ -264,7 +263,7 @@ int waitForStart (struct _field *field, WINDOW* win)
         else if (c == ' ')
         {                
                 loadArrayToField (field, readingArray, win);
-                printf("\033[?1003l\n");
+//                printf("\033[?1003l\n");
                 free (readingArray);
                 return 0;        
 
